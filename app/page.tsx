@@ -1,101 +1,221 @@
-import Image from "next/image";
+"use client"
+
+import { useState } from 'react';
+
+interface FineTuneData {
+  system: string;
+  prompt: string;
+  response: string;
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [system, setSystem] = useState<string>('');
+  const [prompt, setPrompt] = useState<string>('');
+  const [response, setResponse] = useState<string>('');
+  const [datasets, setDatasets] = useState<FineTuneData[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Handle adding or updating a dataset
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newData: FineTuneData = { system, prompt, response };
+
+    if (editingIndex !== null) {
+      // Update the dataset if we're editing
+      const updatedDatasets = [...datasets];
+      updatedDatasets[editingIndex] = newData;
+      setDatasets(updatedDatasets);
+      setEditingIndex(null); // Reset the editing state
+    } else {
+      // Add a new dataset if we're not editing
+      setDatasets((prevDatasets) => [...prevDatasets, newData]);
+    }
+
+    // Reset input fields
+    setSystem('');
+    setPrompt('');
+    setResponse('');
+  };
+
+  // Apply the current system message to all datasets
+  const handleApplyToAll = () => {
+    const updatedDatasets = datasets.map(dataset => ({
+      ...dataset,
+      system, // Apply current system message to all datasets
+    }));
+    setDatasets(updatedDatasets);
+  };
+
+  // Handle editing an existing dataset
+  const handleEdit = (index: number) => {
+    const datasetToEdit = datasets[index];
+    setSystem(datasetToEdit.system);
+    setPrompt(datasetToEdit.prompt);
+    setResponse(datasetToEdit.response);
+    setEditingIndex(index); // Track the index of the dataset being edited
+  };
+
+  // Handle deleting a dataset
+  const handleDelete = (index: number) => {
+    const updatedDatasets = datasets.filter((_, i) => i !== index);
+    setDatasets(updatedDatasets);
+    if (editingIndex === index) {
+      // Reset form if the dataset being edited is deleted
+      setSystem('');
+      setPrompt('');
+      setResponse('');
+      setEditingIndex(null);
+    }
+  };
+
+  // Handle downloading the datasets as a JSONL file
+  const handleDownload = () => {
+    const jsonlData = datasets
+      .map((data) =>
+        JSON.stringify({
+          ...data,
+          // Replace actual newlines with literal `\n`
+          system: data.system.replace(/\n/g, '\\n'),
+          prompt: data.prompt.replace(/\n/g, '\\n'),
+          response: data.response.replace(/\n/g, '\\n'),
+        })
+      )
+      .join('\n'); // Join with newline characters between JSON objects
+    const blob = new Blob([jsonlData], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'fine-tune-dataset.jsonl';
+    link.click();
+  };
+
+  // Handle search filtering
+  const filteredDatasets = datasets.filter((dataset) =>
+    dataset.system.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    dataset.prompt.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="h-screen flex bg-[#0D1117]">
+      {/* Sidebar */}
+      <div className="w-1/4 bg-[#161B22] text-[#C9D1D9] p-4 overflow-y-auto h-screen">
+        <div className="relative mb-6">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search the dataset..."
+            className="w-full p-3 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#58A6FF] bg-[#161B22] text-[#C9D1D9]"
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+
+        <ul className="space-y-3">
+          {filteredDatasets.map((dataset, index) => (
+            <li
+              key={index}
+              className="bg-[#58A6FF] text-black p-3 rounded-lg shadow hover:bg-[#1F6FEB] transition duration-200 flex justify-between items-center"
+            >
+              <div onClick={() => handleEdit(index)} className="cursor-pointer flex-1">
+                <strong>System:</strong> {dataset.system}, <strong>Prompt:</strong> {dataset.prompt}
+              </div>
+              <button
+                className="ml-4 bg-red-500 text-white px-2 py-1 rounded-full hover:bg-red-600 transition duration-200"
+                onClick={() => handleDelete(index)}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <button
+          className="mt-8 w-full bg-[#58A6FF] text-black py-3 rounded-full shadow hover:bg-[#1F6FEB] transition duration-200"
+          onClick={handleDownload}
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Download JSONL
+        </button>
+      </div>
+
+      {/* Main content */}
+      <div className="w-3/4 p-10">
+        <div className="bg-[#161B22] p-8 shadow-lg rounded-lg">
+          <h1 className="text-2xl font-semibold mb-8 text-[#F0F6FC]">
+            {editingIndex !== null ? 'Update Dataset' : 'Fine-tune Dataset'}
+          </h1>
+
+          <form onSubmit={handleSubmit}>
+            {/* System */}
+            <div className="mb-6">
+              <label className="block font-medium text-[#F0F6FC] mb-2">SYSTEM</label>
+              <textarea
+                value={system}
+                onChange={(e) => setSystem(e.target.value)}
+                placeholder="Describe the system behavior"
+                className="w-full p-3 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#58A6FF] bg-[#161B22] text-[#C9D1D9] h-24"
+                required
+              ></textarea>
+            </div>
+
+            <div className="mb-6">
+              {/* Apply to All Button */}
+              <button
+                type="button"
+                onClick={handleApplyToAll}
+                className="bg-[#58A6FF] text-black px-6 py-3 rounded-full shadow hover:bg-[#1F6FEB] transition duration-200"
+              >
+                Apply to All
+              </button>
+            </div>
+
+            {/* Prompt */}
+            <div className="mb-6">
+              <label className="block font-medium text-[#F0F6FC] mb-2">USER</label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Enter the prompt"
+                className="w-full p-3 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#58A6FF] bg-[#161B22] text-[#C9D1D9] h-24"
+                required
+              ></textarea>
+            </div>
+
+            {/* Response */}
+            <div className="mb-6">
+              <label className="block font-medium text-[#F0F6FC] mb-2">ASSISTANT</label>
+              <textarea
+                value={response}
+                onChange={(e) => setResponse(e.target.value)}
+                placeholder="Enter the assistant's response"
+                className="w-full p-3 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#58A6FF] bg-[#161B22] text-[#C9D1D9] h-24"
+                required
+              ></textarea>
+            </div>
+
+            <div className="flex justify-end space-x-4">
+              <button
+                type="submit"
+                className="bg-[#58A6FF] text-black px-6 py-3 rounded-full shadow hover:bg-[#1F6FEB] transition duration-200"
+              >
+                {editingIndex !== null ? 'Update Data' : 'Add Data'}
+              </button>
+              {editingIndex !== null && (
+                <button
+                  className="bg-gray-500 text-white px-6 py-3 rounded-full shadow hover:bg-gray-600 transition duration-200"
+                  onClick={() => {
+                    // Reset the form if user cancels editing
+                    setSystem('');
+                    setPrompt('');
+                    setResponse('');
+                    setEditingIndex(null);
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
